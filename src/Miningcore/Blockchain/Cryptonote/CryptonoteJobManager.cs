@@ -607,20 +607,7 @@ namespace Miningcore.Blockchain.Cryptonote
 
         private void ConfigureRewards()
         {
-            // Donation to MiningCore development
-            if(networkType == CryptonoteNetworkType.Main &&
-                DevDonation.Addresses.TryGetValue(poolConfig.Template.Symbol, out var address))
-            {
-                poolConfig.RewardRecipients = poolConfig.RewardRecipients.Concat(new[]
-                {
-                    new RewardRecipient
-                    {
-                        Address = address,
-                        Percentage = DevDonation.Percent,
-                        Type = "dev"
-                    }
-                }).ToArray();
-            }
+       
         }
 
         protected virtual void SetupJobUpdates(CancellationToken ct)
