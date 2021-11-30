@@ -533,7 +533,40 @@ namespace Miningcore.Blockchain.Ethereum
                     logger.Info(() => "Waiting for first valid block template");
                     await Task.Delay(TimeSpan.FromSeconds(5), ct);
                 }
-            }
+                        
+              protected virtual async Task SetupJobUpdatesAsync()
+             {
+            if(extraPoolConfig?.BtStream == null)
+            {
+                // Check for notifyWorkUrl config options
+                // If found, for now ignore all other parameters (e.g. blockRefreshInterval or wsStreaming)
+                var notifyWorkUrls = poolConfig.Daemons
+                    .Where(x => !string.IsNullOrEmpty(x.Extra.SafeExtensionDataAs<EthereumDaemonEndpointConfigExtra>()?.NotifyWorkUrl))
+                    .ToDictionary(x => x, x =>
+                    {
+                        var extra = x.Extra.SafeExtensionDataAs<EthereumDaemonEndpointConfigExtra>();
+                        return extra.NotifyWorkUrl;
+                    });
+
+                if (notifyWorkUrls.Count > 0)
+                {
+                    logger.Info(() => $"Subscribing to notify work push-updates from {string.Join(", ", notifyWorkUrls.Values)}");
+                    var getWorkObs = daemon.NotifyWorkSubscribe(logger, notifyWorkUrls);
+                    Jobs = getWorkObs.Where(x => x != null)
+                        .Select(AssembleBlockTemplate)
+                        .Select(UpdateJob)
+                        .Do(isNew =>
+                        {
+                            if(isNew)
+                                logger.Info(() => $"New work at height {currentJob.BlockTemplate.Height} and header {currentJob.BlockTemplate.Header} detected [{JobRefreshBy.NotifyWork}]");
+                        })
+                        .Where(isNew => isNew)
+                        .Select(_ => GetJobParamsForStratum(true))
+                        .Publish()
+                        .RefCount();
+                    return;
+                }
+            
 
             ConfigureRewards();
 
